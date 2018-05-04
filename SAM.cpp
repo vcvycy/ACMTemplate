@@ -7,7 +7,7 @@
   (1)CHARSZ是字符个数 idx()可以对字符进行编码
 */
 #define CHARSZ 26
-int idx(char c){return c-'a';}
+int idx(char c){return c-'a';}  //返回值在[0,CHARSZ)内。
 struct State{
   State* par,*go[CHARSZ];
   int val,f;
