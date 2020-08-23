@@ -41,7 +41,7 @@ struct NODE {
         } else {
             if (need_reverse & (1<<depth)){
                 swap(l, r);
-                need_reverse ^= (1<<depth) - 1;
+                need_reverse ^= 1<<(depth - 1);
             }
             l->need_reverse ^= need_reverse;
             r->need_reverse ^= need_reverse;
