@@ -2,127 +2,152 @@
 #include<iostream>
 #include<algorithm>
 #include<string.h>
-using namespace std;
-#define N ((1<<18)+1)
-struct NODE {
-    NODE* l;
-    NODE* r;
-    long long sum; // 和
-    int need_reverse;
-    int num;  // 有几个数值
-    int depth;
-    NODE() {
-        l = r = nullptr;
-        need_reverse = 0;
-        sum =0;
-    }
-    void update(){ // 更新当前树上的值
-        sum = l->sum + r->sum;
-    }
-    void build(int* a, int len, int d) {
-        num = len;
-        depth = d;
-        if (num == 1) {
-            sum = a[0];
-            return ;
-        }else {
-            l = new NODE();
-            r = new NODE();
-            int half = len>>1;
-            l->build(a, half, d-1);
-            r->build(a + half, half, d-1);
-            update();
-        }
-    }
-    void pushdown() {
-        // 将reverse 标记push down
-        if (!need_reverse || num == 1) {
-            return ;
-        } else {
-            if (need_reverse & (1<<depth)){
-                swap(l, r);
-                need_reverse ^= 1<<(depth - 1);
-            }
-            l->need_reverse ^= need_reverse;
-            r->need_reverse ^= need_reverse;
-            need_reverse = 0;
-        }
-    }
-    void replace(int pos, int val) { // 位置pos(1..2^n)改成val
-        pushdown();
-        if (pos > num || pos <1) { // 不在当前子树上
-            return;
-        }
-        if (num == 1){
-            sum = val;
-            return ;
-        }
-        l->replace(pos, val);
-        r->replace(pos - (num >>1), val);
-        update();
-    }
-    void reverse(int k) {  // depth
-        need_reverse ^= (1<<k);
-    }
-    long long get_sum(int a, int b) {
-        pushdown();
-        if (b >= num) b = num;
-        if (a <= 1) a = 1;
-        if (a == 1 && b == num)  // 被包含
-            return sum;
-        long long sumlr = 0;
-        // 左
-        int half = num >>1;
-        if (a <= half)
-            sumlr += l->get_sum(a, b);
-        if (b >half)
-            sumlr += r->get_sum(a - half, b- half);
-        return sumlr;
-    }
-    void print(){ // debug
-        pushdown();
-        if (num == 1){
-            std::cout<< sum << " ";
-        }else{
-            l->print();
-            r->print();
-        }
+#include<vector>
+using namespace std; 
+#define N 101000
+#define E6 1000000
+struct Line {
+    int pos;
+    int len;
+    Line(int pos, int len):pos(pos), len(len){
     }
 };
-int a[N], q;
-int n;
-NODE *root = new NODE();
-int main(){
-    scanf("%d%d", &n, &q);
-    for (int i=0;i < (1<<n); i++){
-        scanf("%d", a+i);
-    }
-    root->build(a, 1 << n, n);
-    // root->print();
-    // std::cout<< "debug\n";
-    while (q--){
-        int op;
-        scanf("%d", &op);
-        if (op == 1) {
-            int pos, val;
-            scanf("%d%d", &pos, &val);
-            root->replace(pos, val);
-        }else if (op == 2){
-            int k;
-            scanf("%d", &k);
-            root->reverse(k);
-        }else if (op == 3){
-            int k;
-            scanf("%d", &k);
-            root->reverse(k+1);
-            root->reverse(k);
-        }else if (op ==4){
-            int l, r;
-            scanf("%d%d", &l, &r);
-            std::cout<<root->get_sum(l, r) << std::endl;
+int n, m ;
+vector<Line> lef,righ , bottom, top;
+int cross_sum = 1; // 交点个数
+void read() { 
+    scanf("%d%d", &n, &m);
+    for (int i =0;i<n;i++){
+        int lx, rx, y;
+        scanf("%d%d%d", &y, &lx, &rx);
+        if (lx == 0) {
+            lef.push_back(Line(y, rx));
+        } else {
+            righ.push_back(Line(y, E6 - lx));
         }
-        // root->print();
-        // std::cout<< "debug\n";
+        if (lx == 0 && rx == E6) 
+            cross_sum += 1;
+    } 
+    for (int i=0 ;i< m;i++){
+        int x, y1, y2;
+        scanf("%d%d%d", &x, &y1, &y2);
+        if (y1 == 0){
+            bottom.push_back(Line(x, y2));
+        }else {
+            top.push_back(Line(x, E6-y1));
+        }
     }
+    // printf("debug: 和边界交点: %d, l %zu r:%zu top :%zu, bot:%zu\n",cross_sum, lef.size(), righ.size(), top.size(), bottom.size());
+}
+struct NODE{ // 线段树
+    NODE* l_node;
+    NODE* r_node;
+    int l, r;  // 长度在[l, r]区间内的数量
+    int sum;
+    NODE(int _l, int _r) {
+        l = _l ;
+        r = _r;
+        sum =0; 
+        l_node=r_node = nullptr;
+    }
+    void expand(){
+        if (l_node || l == r) return ;
+        int mid = (l+r)/2;
+        l_node = new NODE(l, mid);
+        r_node = new NODE(mid+1, r);
+    }
+    void update(){
+        sum = l_node->sum + r_node->sum;
+    }
+    void inc(int pos){
+        if (pos > r||pos <l) return ;
+        if (l == r) {
+            sum ++;
+            return;
+        }else {
+            expand();
+            l_node->inc(pos);
+            r_node->inc(pos);
+            update();
+            // printf(" [inc] %d~%d %d\n", l, r, sum);
+        }
+    }
+    int get_sum(int ll, int rr){
+        if (ll > r || rr < l) return 0;  // 不在区间内
+        if (sum == 0) return 0;         // 一个都没有
+        if (l>=ll && r <= rr) {
+            return sum;
+        }
+        return l_node->get_sum(ll, rr) + r_node->get_sum(ll, rr);
+    }
+};
+void clear(NODE* node){
+    if (node->l_node){
+        clear(node->l_node);
+        clear(node->r_node);
+    }
+    delete node;
+}
+bool sort_by_len(Line a, Line b) {
+    return a.len <= b.len;
+}
+bool sort_by_pos(Line a, Line b) {
+    return a.pos <= b.pos;
+}
+int solve(vector<Line>& lef, vector<Line>& bottom) {
+    // 求交点数, 左侧节点为lef，底部节点为bottom
+    /*
+      思路：
+      (1) 底部节点按长度排序 
+      (2) 左侧节点按照坐标排序
+      (3) 枚举底部节点，把左侧节点坐标逐渐加入线段树(左侧节点的长度)，然后求有多少节点长度
+     */
+    int num =0;
+    std::sort(bottom.begin(), bottom.end(), sort_by_len);
+    std::sort(lef.begin(), lef.end(), sort_by_pos);
+    NODE *root = new NODE(0, E6);
+    int lef_idx = 0;
+    for (auto item : bottom) {
+        // printf("x : %d len:%d\n", item.pos, item.len);
+        while (lef_idx < lef.size() && lef[lef_idx].pos <= item.len){
+            root->inc(lef[lef_idx].len);
+            // printf("    add : %d len%d  总节点数:%d\n", lef[lef_idx].pos, lef[lef_idx].len, root->get_sum(0, E6));
+            lef_idx ++;
+        }
+        int new_cross =  root->get_sum(item.pos, E6);
+        // printf("    新增交叉:%d (%d->%d)\n ", new_cross, item.pos, E6);
+        num+=new_cross ;
+    }
+    clear(root);
+    return num;
+}
+int main(){ 
+    read();
+    // 底部和左侧
+    cross_sum += solve(lef, bottom);
+    // 底部和右侧
+    vector<Line> bot;
+    for (auto item : bottom) {
+        bot.push_back(Line(E6 -item.pos, item.len));
+    }
+    cross_sum += solve(righ, bot);
+    // 顶部和左侧
+    vector<Line> tmp;
+    for (auto item : lef) {
+        tmp.push_back(Line(E6 - item.pos, item.len));
+    }
+    cross_sum += solve(tmp, top);
+    // 顶部和右侧
+
+    vector<Line> tmp2;
+    tmp.clear();
+    for (auto item : righ){
+        tmp.push_back(Line(E6 - item.pos, item.len));
+    }
+    for (auto item : top){
+        tmp2.push_back(Line(E6 - item.pos, item.len));
+    }
+    cross_sum += solve(tmp, tmp2);
+    printf("%d\n", cross_sum);
     return 0;
 }
